@@ -3,12 +3,11 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
-<title>Brick Breaker+ (Upgrades)</title>
+<title>Brick Breaker+ (Skins)</title>
 <style>
   :root{
     --bg:#0b0f17; --panel:#121a27; --line:#223049;
     --text:#e7eefc; --muted:#9bb0d0;
-    --accent:#60a5fa; --good:#34d399; --warn:#fbbf24; --bad:#fb7185;
     --shadow:0 14px 34px rgba(0,0,0,.35); --r:18px;
   }
   *{box-sizing:border-box}
@@ -37,46 +36,38 @@
   h1{margin:0; font-size:18px}
   .sub{font-size:12px; color:var(--muted); margin-top:2px}
 
-  .top{display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end}
-  button{
-    border:1px solid var(--line);
+  .top{display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; align-items:center}
+  button, select{
+    border:1px solid #223049;
     background: rgba(18,26,39,.78);
-    color:var(--text);
+    color:#e7eefc;
     padding:10px 12px; border-radius:14px;
     cursor:pointer; user-select:none;
     transition:.15s transform,.15s filter;
   }
-  button:hover{filter:brightness(1.06)}
+  select{cursor:pointer}
+  button:hover, select:hover{filter:brightness(1.06)}
   button:active{transform:translateY(1px) scale(.99)}
   .btn-accent{border-color: rgba(96,165,250,.55); background: linear-gradient(145deg, rgba(96,165,250,.35), rgba(18,26,39,.85))}
   .btn-good{border-color: rgba(52,211,153,.55); background: linear-gradient(145deg, rgba(52,211,153,.28), rgba(18,26,39,.85))}
   .btn-warn{border-color: rgba(251,191,36,.55); background: linear-gradient(145deg, rgba(251,191,36,.22), rgba(18,26,39,.85))}
-
   .grid{display:grid; grid-template-columns: 1.15fr .85fr; gap:14px}
   @media (max-width:980px){ .grid{grid-template-columns:1fr} }
 
   .card{
     background: linear-gradient(180deg, rgba(18,26,39,.92), rgba(15,22,34,.92));
-    border:1px solid var(--line);
+    border:1px solid #223049;
     border-radius: var(--r);
     box-shadow: var(--shadow);
     padding:12px;
     overflow:hidden;
   }
 
-  /* ====== 스마트폰 높이 맞춤 핵심 ======
-     - canvas는 CSS로 "최대 높이"를 dvh 기준으로 제한
-     - 가로가 작으면 자동으로 더 작아지며 비율 유지
-  */
-  .stage{
-    display:flex; gap:12px; flex-wrap:wrap; align-items:flex-start;
-  }
-  .canvasWrap{
-    width: min(520px, 100%);
-  }
+  /* 모바일 세로 최적화 */
+  .stage{display:flex; gap:12px; flex-wrap:wrap; align-items:flex-start}
+  .canvasWrap{width: min(520px, 100%)}
   canvas{
     width:100%;
-    /* 세로가 "너무 커서" 문제 해결: 모바일에서 실제 뷰포트(dvh) 기준으로 제한 */
     height: min(70dvh, 560px);
     max-height: 70dvh;
     background: rgba(0,0,0,.16);
@@ -112,7 +103,6 @@
     white-space:pre-line;
     color: rgba(231,238,252,.88);
   }
-
   .pad{
     background: rgba(0,0,0,.16);
     border:1px solid rgba(255,255,255,.08);
@@ -123,7 +113,6 @@
   .pad .btns{display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px}
   .pad button{padding:12px 10px; font-weight:900}
   .pad .wide{grid-column: span 3}
-
   .toast{
     position:fixed; left:50%; bottom:18px; transform:translateX(-50%);
     background: rgba(15,22,34,.92);
@@ -145,10 +134,12 @@
       <div class="logo">B</div>
       <div>
         <h1>Brick Breaker+</h1>
-        <div class="sub">아이템 드랍 + 업그레이드 벽돌깨기 (모바일 세로 크기 최적화)</div>
+        <div class="sub">아이템 드랍 + 업그레이드 + 스킨/테마</div>
       </div>
     </div>
+
     <div class="top">
+      <select id="themeSelect" title="테마 선택"></select>
       <button class="btn-accent" id="btnStart">시작</button>
       <button id="btnPause">일시정지</button>
       <button class="btn-good" id="btnNew">새 게임</button>
@@ -200,8 +191,8 @@
 
           <div class="panel">
             <div class="hint">
-              • GitHub Pages 올리기: index.html 업로드 → Settings > Pages → main/root<br/>
-              • “광고 시청 부활/강화” 같은 수익화 구조도 쉽게 붙일 수 있음.
+              • GitHub Pages: index.html 업로드 → Settings > Pages → main/root<br/>
+              • 테마는 저장됨(브라우저 localStorage).
             </div>
           </div>
         </div>
@@ -232,714 +223,4 @@
   const levelEl = $("level");
   const lifeEl  = $("life");
   const statePill = $("statePill");
-  const buffPill  = $("buffPill");
-  const speedPill = $("speedPill");
-  const dropsPill = $("dropsPill");
-  const logEl = $("log");
-  const toastEl = $("toast");
-
-  function toast(msg){
-    toastEl.textContent = msg;
-    toastEl.classList.add("on");
-    clearTimeout(toastEl._t);
-    toastEl._t = setTimeout(()=>toastEl.classList.remove("on"), 1600);
-  }
-  function log(msg){
-    const t = new Date().toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
-    const prev = logEl.textContent;
-    logEl.textContent = `[${t}] ${msg}\n` + prev;
-    logEl.textContent = logEl.textContent.slice(0, 2600);
-  }
-
-  // ===== Save =====
-  const LS = "brick_breaker_plus_v1";
-  let best = 0;
-  try{
-    const raw = localStorage.getItem(LS);
-    if(raw) best = Math.max(0, (JSON.parse(raw).best|0));
-  }catch(e){}
-  function saveBest(){
-    try{ localStorage.setItem(LS, JSON.stringify({best})); }catch(e){}
-  }
-
-  // ===== Game Constants (virtual coords) =====
-  // We'll use internal canvas size (900x1200) and scale via CSS.
-  const W = cv.width, H = cv.height;
-
-  // ===== State =====
-  let running=false, paused=false, over=false;
-  let score=0, level=1, life=3;
-
-  // Paddle
-  const paddle = { x: W/2, y: H-90, w: 180, h: 18, speed: 900 };
-  let paddleTargetX = paddle.x;
-
-  // Balls
-  let balls = [];
-  // Bricks
-  let bricks = [];
-  // Drops
-  let drops = [];
-  // Lasers
-  let lasers = [];
-
-  // Buffs with timers
-  const buffs = {
-    expand: { on:false, t:0 },
-    slow:   { on:false, t:0 },
-    laser:  { on:false, t:0, ammo:0 },
-    shield: { on:false, t:0 }
-  };
-
-  // Tuning
-  let dropRate = 0.18; // base per brick
-  let brickHPMax = 1;  // increases with level
-  let ballSpeedBase = 560; // increases with level
-  let speedMult = 1;
-
-  // Input
-  const keys = new Set();
-  let lastTs = performance.now();
-
-  // ===== Helpers =====
-  const clamp = (v,a,b)=>Math.max(a, Math.min(b, v));
-  const rand = (a,b)=>a + Math.random()*(b-a);
-
-  function renderHUD(){
-    scoreEl.textContent = score|0;
-    bestEl.textContent = best|0;
-    levelEl.textContent = level|0;
-    lifeEl.textContent = life|0;
-
-    const active = [];
-    if(buffs.expand.on) active.push(`확장 ${Math.ceil(buffs.expand.t/1000)}s`);
-    if(buffs.slow.on) active.push(`슬로우 ${Math.ceil(buffs.slow.t/1000)}s`);
-    if(buffs.laser.on) active.push(`레이저 ${buffs.laser.ammo}`);
-    if(buffs.shield.on) active.push(`쉴드 ${Math.ceil(buffs.shield.t/1000)}s`);
-    buffPill.textContent = "버프: " + (active.length? active.join(" · ") : "-");
-
-    speedPill.textContent = `속도: x${speedMult.toFixed(2)}`;
-    dropsPill.textContent = `드랍률: ${(dropRate*100).toFixed(0)}%`;
-  }
-
-  function resetBall(keepMulti=false){
-    // spawn one ball stuck on paddle
-    balls = keepMulti ? balls : [];
-    if(!keepMulti || balls.length===0){
-      balls.push({
-        x: paddle.x,
-        y: paddle.y - 24,
-        r: 10,
-        vx: 0,
-        vy: 0,
-        stuck: true
-      });
-    } else {
-      // ensure at least one stuck if all moving? no
-    }
-  }
-
-  function newGame(hard=true){
-    running=false; paused=false; over=false;
-    score=0; level=1; life=3;
-    clearAll();
-    applyDifficulty();
-    buildLevel();
-    resetBall(false);
-    statePill.textContent = "대기";
-    log("새 게임 준비 완료.");
-    renderHUD();
-  }
-
-  function clearAll(){
-    bricks = [];
-    drops = [];
-    lasers = [];
-    balls = [];
-    buffs.expand.on=buffs.slow.on=buffs.laser.on=buffs.shield.on=false;
-    buffs.expand.t=buffs.slow.t=buffs.laser.t=buffs.shield.t=0;
-    buffs.laser.ammo=0;
-    speedMult = 1;
-    paddle.w = 180;
-    paddle.x = W/2;
-    paddleTargetX = paddle.x;
-  }
-
-  function applyDifficulty(){
-    brickHPMax = clamp(1 + Math.floor((level-1)/2), 1, 4);
-    dropRate = clamp(0.18 + (level-1)*0.02, 0.18, 0.35);
-    ballSpeedBase = clamp(560 + (level-1)*35, 560, 920);
-    // slight global speed ramp
-    speedMult = 1 + (level-1)*0.06;
-  }
-
-  function buildLevel(){
-    bricks = [];
-    const rows = clamp(5 + Math.floor((level-1)*0.6), 5, 10);
-    const cols = 10;
-    const pad = 16;
-    const top = 140;
-
-    const bw = (W - pad*2 - (cols-1)*10) / cols;
-    const bh = 34;
-
-    for(let r=0;r<rows;r++){
-      for(let c=0;c<cols;c++){
-        const hp = clamp(1 + Math.floor((Math.random()*brickHPMax)), 1, brickHPMax);
-        const typeRoll = Math.random();
-        const special = (typeRoll < 0.08) ? "steel" : (typeRoll < 0.16 ? "glass" : "normal");
-        bricks.push({
-          x: pad + c*(bw+10),
-          y: top + r*(bh+10),
-          w: bw, h: bh,
-          hp: (special==="steel") ? hp+2 : (special==="glass" ? 1 : hp),
-          special
-        });
-      }
-    }
-    log(`레벨 ${level} 시작. 벽돌 ${bricks.length}개.`);
-  }
-
-  function start(){
-    if(over) return;
-    if(!bricks.length) { buildLevel(); }
-    running=true;
-    paused=false;
-    statePill.textContent="진행 중";
-    toast("시작!");
-  }
-
-  function togglePause(){
-    if(over) return;
-    if(!running){ start(); return; }
-    paused=!paused;
-    statePill.textContent = paused ? "일시정지" : "진행 중";
-    toast(paused ? "일시정지" : "재개");
-  }
-
-  function loseLife(){
-    life--;
-    log("공 놓침! 라이프 -1");
-    if(life<=0){
-      onGameOver();
-      return;
-    }
-    // remove extra balls, respawn
-    resetBall(false);
-  }
-
-  function onGameOver(){
-    over=true; running=false; paused=false;
-    statePill.textContent="GAME OVER";
-    if(score > best){
-      best = score;
-      saveBest();
-      toast("최고기록 갱신!");
-      log(`최고기록 갱신: ${best}`);
-    } else {
-      log("게임 오버.");
-      toast("GAME OVER");
-    }
-  }
-
-  function onClearLevel(){
-    running=false; paused=false;
-    statePill.textContent="CLEAR!";
-    const bonus = 500 * level;
-    score += bonus;
-    toast(`클리어! 보너스 +${bonus}`);
-    log(`레벨 ${level} 클리어! +${bonus}`);
-    renderHUD();
-
-    setTimeout(()=>{
-      level++;
-      clearAll();
-      applyDifficulty();
-      buildLevel();
-      resetBall(false);
-      statePill.textContent="대기";
-      toast(`레벨 ${level} 준비`);
-    }, 900);
-  }
-
-  // ===== Powerups =====
-  const DROP_TYPES = [
-    { id:"multi",  name:"멀티볼",   color:"#34d399" },
-    { id:"expand", name:"확장",     color:"#60a5fa" },
-    { id:"slow",   name:"슬로우",   color:"#fbbf24" },
-    { id:"laser",  name:"레이저",   color:"#a78bfa" },
-    { id:"shield", name:"쉴드",     color:"#38bdf8" },
-    { id:"life",   name:"+1 라이프", color:"#fb7185" }
-  ];
-
-  function spawnDrop(x,y){
-    const t = DROP_TYPES[(Math.random()*DROP_TYPES.length)|0];
-    drops.push({
-      x, y, w: 54, h: 22,
-      vy: 220 + level*10,
-      type: t
-    });
-  }
-
-  function applyDrop(id){
-    if(id==="multi"){
-      // add 2 extra balls from paddle position with angled velocity
-      let base = balls.find(b=>!b.stuck) || balls[0];
-      const sx = base?.x ?? paddle.x;
-      const sy = base?.y ?? (paddle.y-24);
-      const sp = ballSpeedBase*speedMult;
-      balls.push({x:sx, y:sy, r:10, vx: -sp*0.7, vy: -sp*0.7, stuck:false});
-      balls.push({x:sx, y:sy, r:10, vx:  sp*0.7, vy: -sp*0.7, stuck:false});
-      toast("멀티볼!");
-      log("드랍: 멀티볼");
-    } else if(id==="expand"){
-      buffs.expand.on=true; buffs.expand.t=14000;
-      paddle.w = 260;
-      toast("패들 확장!");
-      log("드랍: 확장(14s)");
-    } else if(id==="slow"){
-      buffs.slow.on=true; buffs.slow.t=12000;
-      toast("슬로우!");
-      log("드랍: 슬로우(12s)");
-    } else if(id==="laser"){
-      buffs.laser.on=true; buffs.laser.t=16000;
-      buffs.laser.ammo += 12;
-      toast("레이저 장착!");
-      log("드랍: 레이저(+12발/16s)");
-    } else if(id==="shield"){
-      buffs.shield.on=true; buffs.shield.t=14000;
-      toast("쉴드 ON!");
-      log("드랍: 쉴드(14s)");
-    } else if(id==="life"){
-      life += 1;
-      toast("+1 라이프!");
-      log("드랍: +1 라이프");
-    }
-  }
-
-  function shootLaser(){
-    if(!running || paused || over) return;
-    if(!buffs.laser.on || buffs.laser.ammo<=0) return;
-    buffs.laser.ammo--;
-    lasers.push({
-      x: paddle.x, y: paddle.y - 18,
-      w: 6, h: 18,
-      vy: -980
-    });
-  }
-
-  // ===== Physics =====
-  function reflectBallOnPaddle(ball){
-    // change angle based on hit position
-    const rel = (ball.x - paddle.x) / (paddle.w/2);
-    const cl = clamp(rel, -1, 1);
-    const speed = ballSpeedBase * speedMult * (buffs.slow.on ? 0.72 : 1);
-    const angle = cl * (Math.PI * 0.38); // -~+ about 68 degrees spread
-    ball.vx = speed * Math.sin(angle);
-    ball.vy = -Math.abs(speed * Math.cos(angle));
-  }
-
-  function ballBrickCollision(ball, brick){
-    // simple AABB-circle collision by clamping
-    const cx = clamp(ball.x, brick.x, brick.x+brick.w);
-    const cy = clamp(ball.y, brick.y, brick.y+brick.h);
-    const dx = ball.x - cx;
-    const dy = ball.y - cy;
-    return (dx*dx + dy*dy) <= ball.r*ball.r;
-  }
-
-  function damageBrick(brick){
-    brick.hp--;
-    score += 10;
-    if(brick.hp<=0){
-      // destroyed
-      score += (brick.special==="steel") ? 25 : (brick.special==="glass" ? 20 : 15);
-      // chance to drop
-      if(Math.random() < dropRate){
-        spawnDrop(brick.x + brick.w/2, brick.y + brick.h/2);
-      }
-      // remove
-      const idx = bricks.indexOf(brick);
-      if(idx>=0) bricks.splice(idx,1);
-    }
-  }
-
-  // ===== Update loop =====
-  function update(dt){
-    // paddle move by keys
-    if(keys.has("ArrowLeft")) paddleTargetX -= paddle.speed * dt;
-    if(keys.has("ArrowRight")) paddleTargetX += paddle.speed * dt;
-
-    paddleTargetX = clamp(paddleTargetX, paddle.w/2 + 12, W - paddle.w/2 - 12);
-    // smooth follow
-    paddle.x += (paddleTargetX - paddle.x) * Math.min(1, dt*18);
-
-    // buffs timers
-    const tick = (b)=>{
-      if(!b.on) return;
-      b.t -= dt*1000;
-      if(b.t <= 0){
-        b.on = false;
-      }
-    };
-    tick(buffs.expand);
-    tick(buffs.slow);
-    tick(buffs.laser);
-    tick(buffs.shield);
-
-    // revert effects when expired
-    if(!buffs.expand.on) paddle.w = 180;
-    if(!buffs.laser.on) buffs.laser.ammo = 0;
-
-    // balls
-    const ballSpeedFactor = (buffs.slow.on ? 0.72 : 1);
-    for(const ball of balls){
-      if(ball.stuck){
-        ball.x = paddle.x;
-        ball.y = paddle.y - 24;
-        continue;
-      }
-      ball.x += ball.vx * dt * ballSpeedFactor;
-      ball.y += ball.vy * dt * ballSpeedFactor;
-
-      // walls
-      if(ball.x - ball.r < 10){ ball.x = 10 + ball.r; ball.vx *= -1; }
-      if(ball.x + ball.r > W-10){ ball.x = W-10 - ball.r; ball.vx *= -1; }
-      if(ball.y - ball.r < 10){ ball.y = 10 + ball.r; ball.vy *= -1; }
-
-      // paddle collision
-      const px1 = paddle.x - paddle.w/2, px2 = paddle.x + paddle.w/2;
-      const py1 = paddle.y - paddle.h/2, py2 = paddle.y + paddle.h/2;
-      if(ball.y + ball.r > py1 && ball.y - ball.r < py2 &&
-         ball.x > px1-2 && ball.x < px2+2 && ball.vy > 0){
-        ball.y = py1 - ball.r - 0.5;
-        reflectBallOnPaddle(ball);
-        score += 2;
-      }
-
-      // shield floor
-      if(buffs.shield.on){
-        const shY = H - 22;
-        if(ball.y + ball.r > shY && ball.vy > 0){
-          ball.y = shY - ball.r - 0.5;
-          ball.vy *= -1;
-        }
-      }
-
-      // bricks collision (check a few)
-      for(const brick of bricks){
-        if(ballBrickCollision(ball, brick)){
-          // determine bounce direction by penetration approximate
-          const bx = brick.x, by = brick.y, bw=brick.w, bh=brick.h;
-          const left = Math.abs((ball.x + ball.r) - bx);
-          const right= Math.abs((bx + bw) - (ball.x - ball.r));
-          const top  = Math.abs((ball.y + ball.r) - by);
-          const bot  = Math.abs((by + bh) - (ball.y - ball.r));
-          const m = Math.min(left,right,top,bot);
-          if(m===left || m===right) ball.vx *= -1;
-          else ball.vy *= -1;
-
-          // damage
-          damageBrick(brick);
-          score += 8;
-
-          // glass breaks instantly with extra pop
-          break;
-        }
-      }
-    }
-
-    // lasers
-    for(let i=lasers.length-1;i>=0;i--){
-      const l = lasers[i];
-      l.y += l.vy * dt;
-      if(l.y < -30){ lasers.splice(i,1); continue; }
-
-      // hit bricks
-      for(const brick of bricks){
-        if(l.x > brick.x && l.x < brick.x+brick.w && l.y < brick.y+brick.h && l.y + l.h > brick.y){
-          // laser hit
-          damageBrick(brick);
-          score += 12;
-          lasers.splice(i,1);
-          break;
-        }
-      }
-    }
-
-    // drops falling
-    for(let i=drops.length-1;i>=0;i--){
-      const d = drops[i];
-      d.y += d.vy * dt;
-      // catch by paddle
-      const px1 = paddle.x - paddle.w/2, px2 = paddle.x + paddle.w/2;
-      const py1 = paddle.y - 30, py2 = paddle.y + 30;
-      if(d.x > px1 && d.x < px2 && d.y > py1 && d.y < py2){
-        applyDrop(d.type.id);
-        drops.splice(i,1);
-        continue;
-      }
-      if(d.y > H+40) drops.splice(i,1);
-    }
-
-    // remove balls that fell below
-    for(let i=balls.length-1;i>=0;i--){
-      const b = balls[i];
-      if(!b.stuck && b.y - b.r > H + 40){
-        balls.splice(i,1);
-      }
-    }
-    if(balls.length===0){
-      loseLife();
-    }
-
-    // clear level
-    if(bricks.length===0){
-      onClearLevel();
-    }
-
-    // best save
-    if(score > best){
-      best = score;
-      saveBest();
-    }
-
-    renderHUD();
-  }
-
-  // ===== Draw =====
-  function roundRect(x,y,w,h,r,fill=true,stroke=false){
-    const rr = Math.min(r, w/2, h/2);
-    ctx.beginPath();
-    ctx.moveTo(x+rr,y);
-    ctx.arcTo(x+w,y, x+w,y+h, rr);
-    ctx.arcTo(x+w,y+h, x,y+h, rr);
-    ctx.arcTo(x,y+h, x,y, rr);
-    ctx.arcTo(x,y, x+w,y, rr);
-    ctx.closePath();
-    if(fill) ctx.fill();
-    if(stroke) ctx.stroke();
-  }
-
-  function draw(){
-    // bg
-    ctx.clearRect(0,0,W,H);
-    ctx.fillStyle = "rgba(0,0,0,.12)";
-    ctx.fillRect(0,0,W,H);
-
-    // frame
-    ctx.strokeStyle = "rgba(255,255,255,.08)";
-    ctx.lineWidth = 3;
-    roundRect(8,8,W-16,H-16,22,false,true);
-
-    // bricks
-    for(const b of bricks){
-      const isSteel = b.special==="steel";
-      const isGlass = b.special==="glass";
-
-      const hp = b.hp;
-      // color from hp + special
-      let base = isSteel ? "rgba(148,163,184,.85)" : isGlass ? "rgba(196,181,253,.80)" : "rgba(96,165,250,.82)";
-      if(hp>=3 && !isSteel) base = "rgba(52,211,153,.82)";
-      if(hp>=4 && !isSteel) base = "rgba(251,191,36,.85)";
-
-      ctx.fillStyle = base;
-      roundRect(b.x, b.y, b.w, b.h, 12, true, false);
-
-      // gloss
-      ctx.fillStyle = "rgba(255,255,255,.14)";
-      roundRect(b.x+8, b.y+6, b.w-16, (b.h-14)*0.45, 10, true, false);
-
-      // outline
-      ctx.strokeStyle = "rgba(0,0,0,.28)";
-      ctx.lineWidth = 2;
-      roundRect(b.x+1, b.y+1, b.w-2, b.h-2, 12, false, true);
-
-      // hp pips
-      ctx.fillStyle = "rgba(0,0,0,.22)";
-      for(let i=0;i<Math.min(4,hp);i++){
-        ctx.beginPath();
-        ctx.arc(b.x + b.w - 14 - i*10, b.y + 12, 3.2, 0, Math.PI*2);
-        ctx.fill();
-      }
-    }
-
-    // drops
-    for(const d of drops){
-      ctx.fillStyle = "rgba(0,0,0,.20)";
-      roundRect(d.x - d.w/2, d.y - d.h/2, d.w, d.h, 999, true, false);
-      ctx.strokeStyle = d.type.color;
-      ctx.lineWidth = 3;
-      roundRect(d.x - d.w/2, d.y - d.h/2, d.w, d.h, 999, false, true);
-      ctx.fillStyle = d.type.color;
-      ctx.font = "900 16px system-ui, sans-serif";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(d.type.id.toUpperCase().slice(0,2), d.x, d.y+0.5);
-      ctx.textAlign = "start";
-      ctx.textBaseline = "alphabetic";
-    }
-
-    // lasers
-    for(const l of lasers){
-      ctx.fillStyle = "rgba(167,139,250,.92)";
-      roundRect(l.x - l.w/2, l.y, l.w, l.h, 4, true, false);
-    }
-
-    // paddle
-    ctx.fillStyle = "rgba(231,238,252,.92)";
-    roundRect(paddle.x - paddle.w/2, paddle.y - paddle.h/2, paddle.w, paddle.h, 999, true, false);
-    ctx.fillStyle = "rgba(96,165,250,.22)";
-    roundRect(paddle.x - paddle.w/2 + 10, paddle.y - paddle.h/2 + 3, paddle.w - 20, paddle.h - 6, 999, true, false);
-
-    // shield line
-    if(buffs.shield.on){
-      ctx.strokeStyle = "rgba(56,189,248,.55)";
-      ctx.lineWidth = 6;
-      ctx.beginPath();
-      ctx.moveTo(20, H-22);
-      ctx.lineTo(W-20, H-22);
-      ctx.stroke();
-    }
-
-    // balls
-    for(const ball of balls){
-      ctx.fillStyle = "rgba(52,211,153,.95)";
-      ctx.beginPath();
-      ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI*2);
-      ctx.fill();
-      ctx.fillStyle = "rgba(255,255,255,.20)";
-      ctx.beginPath();
-      ctx.arc(ball.x-3, ball.y-4, ball.r*0.45, 0, Math.PI*2);
-      ctx.fill();
-    }
-
-    // overlay states
-    if(paused || over || statePill.textContent==="CLEAR!"){
-      ctx.fillStyle = "rgba(0,0,0,.55)";
-      ctx.fillRect(0,0,W,H);
-      ctx.textAlign="center";
-      ctx.textBaseline="middle";
-      ctx.fillStyle="rgba(231,238,252,.92)";
-      ctx.font="900 72px system-ui, sans-serif";
-      const text = over ? "GAME OVER" : paused ? "PAUSED" : "CLEAR!";
-      ctx.fillText(text, W/2, H/2 - 30);
-      ctx.font="700 20px system-ui, sans-serif";
-      ctx.fillStyle="rgba(155,176,208,.95)";
-      ctx.fillText(over ? "새 게임 버튼으로 재시작" : paused ? "P 또는 버튼으로 재개" : "다음 레벨 준비 중…", W/2, H/2 + 40);
-      ctx.textAlign="start";
-      ctx.textBaseline="alphabetic";
-    }
-  }
-
-  // ===== Input =====
-  function releaseAllKeys(){
-    keys.clear();
-  }
-
-  window.addEventListener("keydown", (e)=>{
-    if(["ArrowLeft","ArrowRight"," ","p","P"].includes(e.key)) e.preventDefault();
-    keys.add(e.key);
-
-    if(e.key===" "){
-      // launch stuck balls, else restart if over
-      if(over){ newGame(true); start(); return; }
-      launchIfStuck();
-    }
-    if(e.key==="p"||e.key==="P") togglePause();
-  }, {passive:false});
-
-  window.addEventListener("keyup", (e)=> keys.delete(e.key));
-
-  function launchIfStuck(){
-    if(!running || paused || over) return;
-    for(const b of balls){
-      if(b.stuck){
-        const sp = ballSpeedBase * speedMult;
-        const angle = rand(-0.55, 0.55); // near upward
-        b.vx = sp * Math.sin(angle);
-        b.vy = -Math.abs(sp * Math.cos(angle));
-        b.stuck = false;
-      }
-    }
-  }
-
-  // mouse move
-  cv.addEventListener("mousemove", (e)=>{
-    const rect = cv.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width * W;
-    paddleTargetX = x;
-  });
-
-  // pointer/touch drag
-  let dragging=false;
-  cv.addEventListener("pointerdown", (e)=>{
-    dragging=true;
-    cv.setPointerCapture(e.pointerId);
-    const rect = cv.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width * W;
-    paddleTargetX = x;
-  });
-  cv.addEventListener("pointermove", (e)=>{
-    if(!dragging) return;
-    const rect = cv.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width * W;
-    paddleTargetX = x;
-  });
-  cv.addEventListener("pointerup", ()=>{
-    dragging=false;
-  });
-
-  // Buttons
-  $("btnStart").addEventListener("click", ()=>start());
-  $("btnPause").addEventListener("click", ()=>togglePause());
-  $("btnNew").addEventListener("click", ()=>{ newGame(true); });
-  $("btnResetBest").addEventListener("click", ()=>{
-    if(!confirm("최고 기록을 초기화할까요?")) return;
-    best = 0; saveBest(); renderHUD(); toast("기록 초기화");
-  });
-
-  $("btnLeft").addEventListener("click", ()=>{ paddleTargetX -= 120; });
-  $("btnRight").addEventListener("click", ()=>{ paddleTargetX += 120; });
-  $("btnShoot").addEventListener("click", ()=>{ launchIfStuck(); });
-  $("btnRestart").addEventListener("click", ()=>{ if(over) { newGame(true); } else { launchIfStuck(); } });
-  $("btnLaser").addEventListener("click", ()=>{ shootLaser(); });
-
-  // ===== Main Loop =====
-  function loop(ts){
-    const dt = Math.min(0.05, Math.max(0, (ts - lastTs)/1000));
-    lastTs = ts;
-
-    if(running && !paused && !over){
-      // keyboard paddle movement is handled in update by keys
-      update(dt);
-    } else {
-      // still keep paddle smoothing for nice feel
-      const dummyDt = dt;
-      paddleTargetX = clamp(paddleTargetX, paddle.w/2 + 12, W - paddle.w/2 - 12);
-      paddle.x += (paddleTargetX - paddle.x) * Math.min(1, dummyDt*18);
-      // keep stuck balls on paddle
-      for(const b of balls){
-        if(b.stuck){
-          b.x = paddle.x;
-          b.y = paddle.y - 24;
-        }
-      }
-      renderHUD();
-    }
-
-    draw();
-    requestAnimationFrame(loop);
-  }
-
-  // ===== Init =====
-  bestEl.textContent = best|0;
-  newGame(true);
-  renderHUD();
-  log("대기 중. 시작 → 발사(Space/발사 버튼)로 플레이.");
-  requestAnimationFrame(loop);
-
-})();
-</script>
-</body>
-</html>
+  co
