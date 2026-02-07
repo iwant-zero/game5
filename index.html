@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover"/>
-<title>Brick Breaker+ (Mobile Launch Fixed)</title>
+<title>Brick Breaker+ (Mobile Launch + Laser Fixed)</title>
 <style>
   :root{
     --bg:#0b0f17; --panel:#121a27; --line:#223049;
@@ -69,7 +69,6 @@
   .stage{display:flex; gap:12px; flex-wrap:wrap; align-items:flex-start}
   .canvasWrap{width: min(520px, 100%)}
 
-  /* 핵심: 인앱 WebView에서도 높이 0 되는 문제 방지 → JS가 픽셀로 강제 세팅 */
   canvas{
     width:100%;
     height: 520px;         /* JS가 덮어씀 */
@@ -140,7 +139,7 @@
       <div class="logo">B</div>
       <div>
         <h1>Brick Breaker+</h1>
-        <div class="sub">모바일 발사(Launch) 문제 해결 버전 — 캔버스 탭 = 발사</div>
+        <div class="sub">모바일 발사/레이저/2손가락 탭 레이저 발사까지 포함</div>
       </div>
     </div>
 
@@ -179,9 +178,9 @@
 
           <div class="panel">
             <div class="hint">
-              ✅ 모바일: <b>캔버스 “톡” 탭</b> = 시작+발사<br/>
+              ✅ 모바일: <b>캔버스 톡(탭)</b> = 시작+발사<br/>
               ✅ 모바일: <b>드래그</b>로 패들 이동<br/>
-              ✅ 버튼 발사도 지원(인앱 click 씹힘 대비해 touchstart 포함)
+              ✅ 레이저: 버튼 또는 <b>2손가락 탭</b>으로 발사 (레이저 아이템 필요)
             </div>
           </div>
 
@@ -206,7 +205,7 @@
     <aside class="card">
       <div style="display:flex; align-items:center; justify-content:space-between; gap:10px">
         <div style="font-weight:900">플레이 로그</div>
-        <span class="pill" id="pillInfo">모바일 런치 패치</span>
+        <span class="pill" id="pillInfo">2손가락 탭 레이저</span>
       </div>
       <div class="log" id="log"></div>
     </aside>
@@ -246,7 +245,7 @@
     logEl.textContent = logEl.textContent.slice(0, 2600);
   }
 
-  // ===== 캔버스 CSS 높이 모바일에서 강제 세팅 (dvh/vh 버그 방지) =====
+  // ===== 캔버스 CSS 높이 강제 세팅 (모바일/인앱 안정화) =====
   function fitCanvasCssHeight(){
     const vh = Math.max(320, window.innerHeight || document.documentElement.clientHeight || 640);
     const h = Math.min(Math.round(vh * 0.70), 560);
@@ -257,7 +256,7 @@
   fitCanvasCssHeight();
 
   // ===== Save (best + theme) =====
-  const LS = "brick_breaker_plus_mobile_launchfix_v1";
+  const LS = "brick_breaker_plus_mobile_launch_laser2tap_v1";
   let best = 0;
   let savedTheme = "neo";
   try{
@@ -341,7 +340,9 @@
   let ballSpeedBase = 560;
   let speedMult = 1;
 
-  const keys = new Set();
+  let lastLaserShotAt = 0;   // 레이저 연사 방지(모바일 멀티터치 중복 방지)
+  const LASER_COOLDOWN_MS = 110;
+
   let lastTs = performance.now();
 
   const clamp = (v,a,b)=>Math.max(a, Math.min(b, v));
@@ -421,9 +422,9 @@
     resetBall();
     statePill.textContent="대기";
     renderHUD();
-    draw(); // 검정/빈 화면 방지
+    draw();
     log("새 게임 준비 완료.");
-    toast("캔버스 탭 = 시작+발사");
+    toast("캔버스 탭=발사 / 2손가락 탭=레이저");
   }
 
   function start(){
@@ -440,9 +441,7 @@
     statePill.textContent = paused ? "일시정지" : "진행 중";
   }
 
-  function saveBest(){
-    saveAll();
-  }
+  function saveBest(){ saveAll(); }
 
   function onGameOver(){
     over=true; running=false; paused=false;
@@ -525,11 +524,24 @@
     }
     log(`드랍: ${id}`);
   }
+
+  // ===== 레이저 발사 (자동 start + 2발 + 쿨다운) =====
   function shootLaser(){
-    if(!running || paused || over) return;
+    if(over) return;
+    if(!running) start();
+    if(paused) return;
+
     if(!buffs.laser.on || buffs.laser.ammo<=0) return;
+
+    const now = performance.now();
+    if(now - lastLaserShotAt < LASER_COOLDOWN_MS) return;
+    lastLaserShotAt = now;
+
     buffs.laser.ammo--;
-    lasers.push({ x:paddle.x, y:paddle.y-18, w:6, h:18, vy:-980 });
+
+    const gap = Math.max(22, paddle.w * 0.33);
+    lasers.push({ x: paddle.x - gap, y: paddle.y - 18, w: 6, h: 18, vy: -980 });
+    lasers.push({ x: paddle.x + gap, y: paddle.y - 18, w: 6, h: 18, vy: -980 });
   }
 
   // ===== Physics =====
@@ -558,7 +570,9 @@
   }
 
   function launchIfStuck(){
-    if(!running || paused || over) return;
+    if(over) return;
+    if(!running) start();
+    if(paused) return;
     for(const b of balls){
       if(b.stuck){
         const sp = ballSpeedBase * speedMult;
@@ -571,6 +585,7 @@
   }
 
   function update(dt){
+    // paddle smoothing
     paddleTargetX = clamp(paddleTargetX, paddle.w/2 + 12, W - paddle.w/2 - 12);
     paddle.x += (paddleTargetX - paddle.x) * Math.min(1, dt*18);
 
@@ -779,14 +794,37 @@
     return (clientX - rect.left) / rect.width * W;
   }
 
-  // ---- Touch drag for paddle ----
+  // Touch drag for paddle + Tap detect for launch + Two-finger tap for laser
   let touchDragging = false;
 
-  // Tap detect (캔버스 탭 = 시작+발사)
+  // 1손가락 탭(발사) 판단
   let tapStartX = 0, tapStartY = 0, tapStartT = 0;
+
+  // 2손가락 탭(레이저) 판단
+  let twoStartT = 0;
+  let twoStartAvgX = 0, twoStartAvgY = 0;
+  let twoActive = false;
 
   cv.addEventListener("touchstart", (e)=>{
     e.preventDefault();
+
+    const touches = e.touches;
+
+    if(touches.length >= 2){
+      // 2손가락 시작
+      twoActive = true;
+      twoStartT = performance.now();
+      const t0 = touches[0], t1 = touches[1];
+      twoStartAvgX = (t0.clientX + t1.clientX) / 2;
+      twoStartAvgY = (t0.clientY + t1.clientY) / 2;
+      // 드래그는 첫 손가락 기준으로 계속 가능
+      const t = touches[0];
+      touchDragging = true;
+      paddleTargetX = clientXToCanvasX(t.clientX);
+      return;
+    }
+
+    // 1손가락 시작
     const t = e.changedTouches[0];
     touchDragging = true;
     paddleTargetX = clientXToCanvasX(t.clientX);
@@ -799,7 +837,8 @@
   cv.addEventListener("touchmove", (e)=>{
     e.preventDefault();
     if(!touchDragging) return;
-    const t = e.changedTouches[0];
+    const t = e.touches[0] || e.changedTouches[0];
+    if(!t) return;
     paddleTargetX = clientXToCanvasX(t.clientX);
   }, {passive:false});
 
@@ -807,14 +846,36 @@
     e.preventDefault();
     touchDragging = false;
 
+    // 2손가락 탭 체크
+    if(twoActive){
+      const now = performance.now();
+      const dt = now - twoStartT;
+
+      // 터치가 모두 떨어졌을 때만 평가
+      if(e.touches.length === 0){
+        // 짧게 톡: 레이저 발사
+        if(dt < 260){
+          if(buffs.laser.on && buffs.laser.ammo > 0){
+            shootLaser();
+            toast("레이저!");
+          } else {
+            toast("레이저 아이템이 필요!");
+          }
+        }
+        twoActive = false;
+      }
+      return;
+    }
+
+    // 1손가락 탭 체크(발사)
     const t = e.changedTouches[0];
+    if(!t) return;
     const dx = Math.abs(t.clientX - tapStartX);
     const dy = Math.abs(t.clientY - tapStartY);
     const dt = performance.now() - tapStartT;
 
     const isTap = (dx < 10 && dy < 10 && dt < 250);
     if(isTap){
-      start();
       launchIfStuck();
       toast("발사!");
     }
@@ -825,18 +886,17 @@
     paddleTargetX = clientXToCanvasX(e.clientX);
   });
 
-  // Keyboard (PC)
+  // Keyboard (PC) : Space=발사, L=레이저
   window.addEventListener("keydown", (e)=>{
-    if(["ArrowLeft","ArrowRight"," ","p","P"].includes(e.key)) e.preventDefault();
-    keys.add(e.key);
+    if(["ArrowLeft","ArrowRight"," ","p","P","l","L"].includes(e.key)) e.preventDefault();
     if(e.key===" "){
-      if(over){ newGame(); start(); return; }
-      start();
       launchIfStuck();
+    }
+    if(e.key==="l" || e.key==="L"){
+      shootLaser();
     }
     if(e.key==="p"||e.key==="P") togglePause();
   }, {passive:false});
-  window.addEventListener("keyup", (e)=> keys.delete(e.key));
 
   // Buttons
   $("btnStart").addEventListener("click", ()=>{ start(); toast("시작"); });
@@ -848,18 +908,25 @@
   });
   $("btnLeft").addEventListener("click", ()=>{ paddleTargetX -= 120; });
   $("btnRight").addEventListener("click", ()=>{ paddleTargetX += 120; });
-  $("btnShoot").addEventListener("click", ()=>{ start(); launchIfStuck(); toast("발사!"); });
-  $("btnRestart").addEventListener("click", ()=>{ if(over) { newGame(); } else { start(); launchIfStuck(); } });
-  $("btnLaser").addEventListener("click", ()=>{ shootLaser(); });
+  $("btnShoot").addEventListener("click", ()=>{ launchIfStuck(); toast("발사!"); });
+  $("btnRestart").addEventListener("click", ()=>{ if(over) { newGame(); } else { launchIfStuck(); } });
+  $("btnLaser").addEventListener("click", ()=>{
+    if(buffs.laser.on && buffs.laser.ammo > 0){ shootLaser(); toast("레이저!"); }
+    else toast("레이저 아이템이 필요!");
+  });
 
-  // iOS/인앱브라우저에서 click 씹힘 대비: touchstart도 추가
+  // iOS/인앱브라우저 click 씹힘 대비: touchstart도 추가
   $("btnStart").addEventListener("touchstart", (e)=>{ e.preventDefault(); start(); toast("시작"); }, {passive:false});
-  $("btnShoot").addEventListener("touchstart", (e)=>{ e.preventDefault(); start(); launchIfStuck(); toast("발사!"); }, {passive:false});
+  $("btnShoot").addEventListener("touchstart", (e)=>{ e.preventDefault(); launchIfStuck(); toast("발사!"); }, {passive:false});
   $("btnPause").addEventListener("touchstart", (e)=>{ e.preventDefault(); togglePause(); }, {passive:false});
-  $("btnLaser").addEventListener("touchstart", (e)=>{ e.preventDefault(); shootLaser(); }, {passive:false});
+  $("btnLaser").addEventListener("touchstart", (e)=>{
+    e.preventDefault();
+    if(buffs.laser.on && buffs.laser.ammo > 0){ shootLaser(); toast("레이저!"); }
+    else toast("레이저 아이템이 필요!");
+  }, {passive:false});
   $("btnLeft").addEventListener("touchstart", (e)=>{ e.preventDefault(); paddleTargetX -= 120; }, {passive:false});
   $("btnRight").addEventListener("touchstart", (e)=>{ e.preventDefault(); paddleTargetX += 120; }, {passive:false});
-  $("btnRestart").addEventListener("touchstart", (e)=>{ e.preventDefault(); if(over){ newGame(); } else { start(); launchIfStuck(); } }, {passive:false});
+  $("btnRestart").addEventListener("touchstart", (e)=>{ e.preventDefault(); if(over){ newGame(); } else { launchIfStuck(); } }, {passive:false});
 
   // ===== Main Loop =====
   function loop(ts){
@@ -887,7 +954,7 @@
   // ===== Init =====
   bestEl.textContent = best|0;
   newGame();
-  log("모바일: 캔버스 탭/발사 버튼으로 발사 가능");
+  log("모바일: 탭=발사, 2손가락 탭=레이저(아이템 필요)");
   requestAnimationFrame(loop);
 })();
 </script>
