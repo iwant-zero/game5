@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover"/>
-<title>Brick Breaker+ (Mobile Fixed)</title>
+<title>Brick Breaker+ (Mobile Launch Fixed)</title>
 <style>
   :root{
     --bg:#0b0f17; --panel:#121a27; --line:#223049;
@@ -21,7 +21,6 @@
       radial-gradient(900px 600px at 60% 100%, rgba(251,191,36,.12), transparent 55%),
       var(--bg);
     overscroll-behavior:none;
-    /* 인앱 브라우저에서 터치 스크롤로 캔버스 입력 씹히는 것 방지 */
     touch-action: manipulation;
   }
 
@@ -70,8 +69,7 @@
   .stage{display:flex; gap:12px; flex-wrap:wrap; align-items:flex-start}
   .canvasWrap{width: min(520px, 100%)}
 
-  /* 핵심: 높이를 CSS로만 제어하지 않고 JS에서 픽셀로도 세팅(인앱 WebView dvh 오류 방지)
-     아래 height는 "기본값" */
+  /* 핵심: 인앱 WebView에서도 높이 0 되는 문제 방지 → JS가 픽셀로 강제 세팅 */
   canvas{
     width:100%;
     height: 520px;         /* JS가 덮어씀 */
@@ -79,9 +77,7 @@
     border:1px solid rgba(255,255,255,.08);
     border-radius: 16px;
     display:block;
-
-    /* 인앱 브라우저 터치 충돌 방지 */
-    touch-action: none;
+    touch-action:none;     /* 캔버스 터치 스크롤 충돌 방지 */
   }
 
   .side{flex:1; min-width:240px; display:flex; flex-direction:column; gap:10px}
@@ -122,7 +118,8 @@
   .pad .wide{grid-column: span 3}
 
   .toast{
-    position:fixed; left:50%; bottom: calc(18px + env(safe-area-inset-bottom));
+    position:fixed; left:50%;
+    bottom: calc(18px + env(safe-area-inset-bottom));
     transform:translateX(-50%);
     background: rgba(15,22,34,.92);
     border:1px solid rgba(255,255,255,.10);
@@ -143,7 +140,7 @@
       <div class="logo">B</div>
       <div>
         <h1>Brick Breaker+</h1>
-        <div class="sub">모바일(인앱 브라우저 포함) 호환 패치 버전</div>
+        <div class="sub">모바일 발사(Launch) 문제 해결 버전 — 캔버스 탭 = 발사</div>
       </div>
     </div>
 
@@ -182,10 +179,9 @@
 
           <div class="panel">
             <div class="hint">
-              ✅ 모바일 조작: 캔버스에서 <b>드래그</b>로 패들 이동<br/>
-              ✅ 발사: <b>발사 버튼</b> 또는 Space(PC)<br/>
-              ⚠️ 카톡/인스타/네이버 “인앱 브라우저”가 가끔 입력 제한이 있어요.<br/>
-              안 되면 “브라우저로 열기(Chrome/Safari)”로 실행하면 100% 정상.
+              ✅ 모바일: <b>캔버스 “톡” 탭</b> = 시작+발사<br/>
+              ✅ 모바일: <b>드래그</b>로 패들 이동<br/>
+              ✅ 버튼 발사도 지원(인앱 click 씹힘 대비해 touchstart 포함)
             </div>
           </div>
 
@@ -201,7 +197,7 @@
           </div>
 
           <div class="panel">
-            <div class="hint">• 테마는 저장됨(localStorage). • 화면 크기는 JS가 자동 맞춤.</div>
+            <div class="hint">• 테마 저장(localStorage) • 캔버스 높이는 JS 자동 맞춤</div>
           </div>
         </div>
       </div>
@@ -210,7 +206,7 @@
     <aside class="card">
       <div style="display:flex; align-items:center; justify-content:space-between; gap:10px">
         <div style="font-weight:900">플레이 로그</div>
-        <span class="pill" id="pillInfo">모바일 패치</span>
+        <span class="pill" id="pillInfo">모바일 런치 패치</span>
       </div>
       <div class="log" id="log"></div>
     </aside>
@@ -221,7 +217,6 @@
 
 <script>
 (() => {
-  // ===== DOM =====
   const cv = document.getElementById("cv");
   const ctx = cv.getContext("2d");
   const $ = (id)=>document.getElementById(id);
@@ -237,7 +232,6 @@
   const logEl = $("log");
   const toastEl = $("toast");
   const themeSelect = $("themeSelect");
-  const pillInfo = $("pillInfo");
 
   function toast(msg){
     toastEl.textContent = msg;
@@ -252,20 +246,18 @@
     logEl.textContent = logEl.textContent.slice(0, 2600);
   }
 
-  // ===== 모바일 화면 높이 강제 픽셀 세팅(인앱 WebView dvh/vh 오류 방지) =====
+  // ===== 캔버스 CSS 높이 모바일에서 강제 세팅 (dvh/vh 버그 방지) =====
   function fitCanvasCssHeight(){
-    // 70% of visible viewport, cap 560
     const vh = Math.max(320, window.innerHeight || document.documentElement.clientHeight || 640);
     const h = Math.min(Math.round(vh * 0.70), 560);
     cv.style.height = h + "px";
-    // 가로는 CSS width:100%라 자동
   }
   window.addEventListener("resize", fitCanvasCssHeight);
   window.addEventListener("orientationchange", ()=>setTimeout(fitCanvasCssHeight, 120));
   fitCanvasCssHeight();
 
   // ===== Save (best + theme) =====
-  const LS = "brick_breaker_plus_mobilefix_v1";
+  const LS = "brick_breaker_plus_mobile_launchfix_v1";
   let best = 0;
   let savedTheme = "neo";
   try{
@@ -277,6 +269,7 @@
     }
   }catch(e){}
   let themeId = savedTheme;
+
   function saveAll(){
     try{ localStorage.setItem(LS, JSON.stringify({best, theme: themeId})); }catch(e){}
   }
@@ -308,7 +301,6 @@
   if(!THEMES.some(t=>t.id===themeId)) themeId = "neo";
   const themeObj = ()=>THEMES.find(t=>t.id===themeId) || THEMES[0];
 
-  // populate select
   for(const t of THEMES){
     const opt = document.createElement("option");
     opt.value = t.id;
@@ -372,8 +364,6 @@
     dropsPill.textContent = `드랍률: ${(dropRate*100).toFixed(0)}%`;
   }
 
-  function saveBest(){ saveAll(); }
-
   function resetBall(){
     balls = [{ x:paddle.x, y:paddle.y-24, r:10, vx:0, vy:0, stuck:true }];
   }
@@ -430,11 +420,10 @@
     buildLevel();
     resetBall();
     statePill.textContent="대기";
-    pillInfo.textContent="모바일 패치";
     renderHUD();
-    draw(); // 화면 즉시 그려서 “검정 화면” 방지
+    draw(); // 검정/빈 화면 방지
     log("새 게임 준비 완료.");
-    toast("모바일: 드래그로 패들 이동");
+    toast("캔버스 탭 = 시작+발사");
   }
 
   function start(){
@@ -442,7 +431,6 @@
     if(!bricks.length) buildLevel();
     running=true; paused=false;
     statePill.textContent="진행 중";
-    toast("시작!");
   }
 
   function togglePause(){
@@ -450,7 +438,10 @@
     if(!running){ start(); return; }
     paused=!paused;
     statePill.textContent = paused ? "일시정지" : "진행 중";
-    toast(paused ? "일시정지" : "재개");
+  }
+
+  function saveBest(){
+    saveAll();
   }
 
   function onGameOver(){
@@ -494,7 +485,7 @@
     resetBall();
   }
 
-  // ===== Drops / Buffs =====
+  // ===== Drops/Buffs =====
   const DROP_TYPES = ["multi","expand","slow","laser","shield","life"];
   function dropColor(id){
     const T = themeObj();
@@ -580,9 +571,6 @@
   }
 
   function update(dt){
-    if(keys.has("ArrowLeft")) paddleTargetX -= paddle.speed * dt;
-    if(keys.has("ArrowRight")) paddleTargetX += paddle.speed * dt;
-
     paddleTargetX = clamp(paddleTargetX, paddle.w/2 + 12, W - paddle.w/2 - 12);
     paddle.x += (paddleTargetX - paddle.x) * Math.min(1, dt*18);
 
@@ -676,7 +664,7 @@
     if(balls.length===0) loseLife();
     if(bricks.length===0) onClearLevel();
 
-    if(score > best){ best = score; saveBest(); }
+    if(score > best){ best = score; saveAll(); }
     renderHUD();
   }
 
@@ -705,7 +693,6 @@
     ctx.lineWidth = 3;
     roundRect(8,8,W-16,H-16,22,false,true);
 
-    // bricks
     for(const b of bricks){
       const isSteel = b.special==="steel";
       const isGlass = b.special==="glass";
@@ -723,7 +710,6 @@
       roundRect(b.x+1, b.y+1, b.w-2, b.h-2, 12, false, true);
     }
 
-    // drops
     for(const d of drops){
       const c = dropColor(d.id);
       ctx.fillStyle = "rgba(0,0,0,.22)";
@@ -740,19 +726,16 @@
       ctx.textBaseline = "alphabetic";
     }
 
-    // lasers
     for(const l of lasers){
       ctx.fillStyle = T.laser;
       roundRect(l.x - l.w/2, l.y, l.w, l.h, 4, true, false);
     }
 
-    // paddle
     ctx.fillStyle = T.paddle;
     roundRect(paddle.x - paddle.w/2, paddle.y - paddle.h/2, paddle.w, paddle.h, 999, true, false);
     ctx.fillStyle = T.paddleGlow;
     roundRect(paddle.x - paddle.w/2 + 10, paddle.y - paddle.h/2 + 3, paddle.w - 20, paddle.h - 6, 999, true, false);
 
-    // shield
     if(buffs.shield.on){
       ctx.strokeStyle = T.shield;
       ctx.lineWidth = 6;
@@ -762,7 +745,6 @@
       ctx.stroke();
     }
 
-    // balls
     for(const ball of balls){
       ctx.fillStyle = T.ball;
       ctx.beginPath();
@@ -774,7 +756,6 @@
       ctx.fill();
     }
 
-    // overlay
     if(paused || over || statePill.textContent==="CLEAR!"){
       ctx.fillStyle = "rgba(0,0,0,.55)";
       ctx.fillRect(0,0,W,H);
@@ -792,19 +773,27 @@
     }
   }
 
-  // ===== Inputs (모바일 확실하게: Touch + Mouse 모두) =====
+  // ===== Inputs =====
   function clientXToCanvasX(clientX){
     const rect = cv.getBoundingClientRect();
     return (clientX - rect.left) / rect.width * W;
   }
 
-  // Touch fallback (passive:false 필수)
+  // ---- Touch drag for paddle ----
   let touchDragging = false;
+
+  // Tap detect (캔버스 탭 = 시작+발사)
+  let tapStartX = 0, tapStartY = 0, tapStartT = 0;
+
   cv.addEventListener("touchstart", (e)=>{
     e.preventDefault();
-    touchDragging = true;
     const t = e.changedTouches[0];
+    touchDragging = true;
     paddleTargetX = clientXToCanvasX(t.clientX);
+
+    tapStartX = t.clientX;
+    tapStartY = t.clientY;
+    tapStartT = performance.now();
   }, {passive:false});
 
   cv.addEventListener("touchmove", (e)=>{
@@ -817,9 +806,21 @@
   cv.addEventListener("touchend", (e)=>{
     e.preventDefault();
     touchDragging = false;
+
+    const t = e.changedTouches[0];
+    const dx = Math.abs(t.clientX - tapStartX);
+    const dy = Math.abs(t.clientY - tapStartY);
+    const dt = performance.now() - tapStartT;
+
+    const isTap = (dx < 10 && dy < 10 && dt < 250);
+    if(isTap){
+      start();
+      launchIfStuck();
+      toast("발사!");
+    }
   }, {passive:false});
 
-  // Mouse
+  // Mouse (PC)
   cv.addEventListener("mousemove", (e)=>{
     paddleTargetX = clientXToCanvasX(e.clientX);
   });
@@ -830,6 +831,7 @@
     keys.add(e.key);
     if(e.key===" "){
       if(over){ newGame(); start(); return; }
+      start();
       launchIfStuck();
     }
     if(e.key==="p"||e.key==="P") togglePause();
@@ -837,7 +839,7 @@
   window.addEventListener("keyup", (e)=> keys.delete(e.key));
 
   // Buttons
-  $("btnStart").addEventListener("click", ()=>start());
+  $("btnStart").addEventListener("click", ()=>{ start(); toast("시작"); });
   $("btnPause").addEventListener("click", ()=>togglePause());
   $("btnNew").addEventListener("click", ()=>newGame());
   $("btnResetBest").addEventListener("click", ()=>{
@@ -846,9 +848,18 @@
   });
   $("btnLeft").addEventListener("click", ()=>{ paddleTargetX -= 120; });
   $("btnRight").addEventListener("click", ()=>{ paddleTargetX += 120; });
-  $("btnShoot").addEventListener("click", ()=>{ start(); launchIfStuck(); });
+  $("btnShoot").addEventListener("click", ()=>{ start(); launchIfStuck(); toast("발사!"); });
   $("btnRestart").addEventListener("click", ()=>{ if(over) { newGame(); } else { start(); launchIfStuck(); } });
   $("btnLaser").addEventListener("click", ()=>{ shootLaser(); });
+
+  // iOS/인앱브라우저에서 click 씹힘 대비: touchstart도 추가
+  $("btnStart").addEventListener("touchstart", (e)=>{ e.preventDefault(); start(); toast("시작"); }, {passive:false});
+  $("btnShoot").addEventListener("touchstart", (e)=>{ e.preventDefault(); start(); launchIfStuck(); toast("발사!"); }, {passive:false});
+  $("btnPause").addEventListener("touchstart", (e)=>{ e.preventDefault(); togglePause(); }, {passive:false});
+  $("btnLaser").addEventListener("touchstart", (e)=>{ e.preventDefault(); shootLaser(); }, {passive:false});
+  $("btnLeft").addEventListener("touchstart", (e)=>{ e.preventDefault(); paddleTargetX -= 120; }, {passive:false});
+  $("btnRight").addEventListener("touchstart", (e)=>{ e.preventDefault(); paddleTargetX += 120; }, {passive:false});
+  $("btnRestart").addEventListener("touchstart", (e)=>{ e.preventDefault(); if(over){ newGame(); } else { start(); launchIfStuck(); } }, {passive:false});
 
   // ===== Main Loop =====
   function loop(ts){
@@ -856,9 +867,6 @@
     lastTs = ts;
 
     if(running && !paused && !over){
-      // keyboard paddle
-      if(keys.has("ArrowLeft")) paddleTargetX -= paddle.speed * dt;
-      if(keys.has("ArrowRight")) paddleTargetX += paddle.speed * dt;
       update(dt);
     } else {
       paddleTargetX = clamp(paddleTargetX, paddle.w/2 + 12, W - paddle.w/2 - 12);
@@ -879,8 +887,8 @@
   // ===== Init =====
   bestEl.textContent = best|0;
   newGame();
+  log("모바일: 캔버스 탭/발사 버튼으로 발사 가능");
   requestAnimationFrame(loop);
-
 })();
 </script>
 </body>
